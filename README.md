@@ -29,14 +29,14 @@ Three theoretical guarantees are proven:
 
 | Model | F1 | AUC | Labels needed? | Update cost |
 |---|---|---|---|---|
-| **RSI (ours)** | **0.519** | **0.599** | **No** | **0.2ms** |
+| **RSI (ours)** | **0.519** | **0.599** | **No** | **1ms** |
 | Rule-Based System | 0.182 | — | No | ~0ms |
-| XGBoost† | 0.967 | 0.999 | Yes | 407ms |
-| MLP† | 0.087 | 0.747 | Yes | 61ms |
+| XGBoost† | 0.971 | 0.999 | Yes | 745ms retrain |
+| MLP† | 0.322 | 0.788 | Yes | 128ms retrain |
 
 †Full supervision required. RSI operates zero-shot.
 
-**2,000× speedup** over full retraining on regulatory change events.
+**745× speedup** over full retraining on regulatory change events.
 
 ---
 
@@ -45,14 +45,21 @@ Three theoretical guarantees are proven:
 ```
 rsi-togo-fiscal/
 ├── paper/
-│   ├── rsi_paper_en.tex
-│   └── rsi_paper_fr.tex
+│   ├── latex/
+│   │   ├── rsi_paper_en.tex      # English version (Overleaf-ready)
+│   │   └── rsi_paper_fr.tex      # French version (Overleaf-ready)
+│   └── pdf/
+│       ├── rsi_paper_en.pdf
+│       └── rsi_paper_fr.pdf
 ├── data/
-│   └── rsi_dataset.csv        # RSI-Togo-Fiscal-Synthetic v1.0
+│   └── rsi_dataset.csv           # RSI-Togo-Fiscal-Synthetic v1.0
 ├── src/
-│   ├── rsi_engine.py          # RSI inference engine (v2)
+│   ├── rsi_engine.py             # RSI inference engine
 │   ├── rsi_baselines.py          # XGBoost, MLP, RBS baselines
 │   └── rsi_experiments.py        # Full experiment pipeline
+├── tests/
+│   └── evaluate_single_company.py
+├── rsi_results.png               # Experimental results figure
 └── requirements.txt
 ```
 
@@ -66,11 +73,29 @@ cd rsi-togo-fiscal
 pip install -r requirements.txt
 
 # Run a single inference
-python - << 'EOF'
-import sys; sys.path.insert(0, "src")
-from rsi_engine_v2 import RSIEngineV2
+python tests/evaluate_single_company.py
 
-engine = RSIEngineV2.for_togo(period="2022_2024")
+# Run all experiments
+python src/rsi_experiments.py
+```
+
+---
+
+## Experimental Results
+
+![RSI Experimental Results](rsi_results.png)
+
+---
+
+## Single Inference Example
+
+```python
+import sys
+sys.path.insert(0, "src")
+from rsi_engine import RSIEngine
+
+engine = RSIEngine.for_togo(period="2022_2024")
+
 obs = {
     "obs_ca_declare": 72_000_000,
     "obs_tva_declaree": 0,
@@ -85,13 +110,10 @@ obs = {
     "obs_benefice_missing": True,
     "obs_ratio_sous_declaration": 0.75,
 }
+
 result = engine.predict_compliance(obs)
 print(f"Global compliance score : {result['global_score']}")
 print(f"Alerts                  : {result['alerts']}")
-EOF
-
-# Run all experiments
-python src/rsi_experiments.py
 ```
 
 ---
@@ -116,15 +138,14 @@ noisy observations, and derived binary labels.
 ## Reproducing the Paper Results
 
 ```bash
-# Full pipeline: dataset generation + all 5 experiments
 python src/rsi_experiments.py
 
 # Expected outputs:
-# EXP-1: RSI F1=0.519, AUC=0.599 (zero-shot)
-# EXP-2: RSI update=0.2ms vs XGBoost=407ms (2000x speedup)
+# EXP-1: RSI F1=0.519, AUC=0.599 (zero-shot, no labels)
+# EXP-2: RSI update ~1ms vs XGBoost ~745ms retrain
 # EXP-3: BvM consistency confirmed
-# EXP-4: <1% F1 degradation under 20% missing data
-# EXP-5: ELBO convergence in 7 iterations
+# EXP-4: RSI F1 stable under 50% missing data
+# EXP-5: ELBO converges in 7 iterations (T3 confirmed)
 ```
 
 ---
