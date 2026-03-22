@@ -1,0 +1,4 @@
+- [ ] Rebuild main paper & appendix
+- [ ] Update paper fr translation
+- [ ] Update appendix fr translation
+- [ ] Update README
