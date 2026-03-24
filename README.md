@@ -4,7 +4,7 @@
 
 **Abdou-Raouf Atarmla** — Togo DataLab / INPT Rabat
 
-[![arXiv](https://img.shields.io/badge/arXiv-2503.XXXXX-b31b1b.svg)](https://arxiv.org/abs/2503.XXXXX)
+[![arXiv](https://img.shields.io/badge/arXiv-2603.21610-b31b1b.svg)](https://arxiv.org/abs/2603.21610)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/fless-lab/rsi-togo-fiscal/blob/master/notebooks/rsi_demo.ipynb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -173,9 +173,9 @@ If you use this work, please cite:
   title   = {Rule-State Inference ({RSI}): A Bayesian Framework
              for Compliance Monitoring in Rule-Governed Domains},
   author  = {Atarmla, Abdou-Raouf},
-  journal = {arXiv preprint arXiv:2503.XXXXX},
+  journal = {arXiv preprint arXiv:2603.21610},
   year    = {2026},
-  url     = {https://arxiv.org/abs/2503.XXXXX}
+  url     = {https://arxiv.org/abs/2603.21610}
 }
 ```
 
