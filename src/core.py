@@ -20,6 +20,7 @@ Guarantees (all exact, no approximation):
 EntityScorer:
     Deterministic rule-check with continuous scores, missing data handling.
     NOT Bayesian. Aggregation (min, mean, ≥K) is a domain policy choice.
+    Supports configurable silence_penalty for MNAR missing data regimes.
 
 Usage:
     from rsi_core import PopulationRSI, EntityScorer
@@ -220,12 +221,41 @@ class EntityScorer:
     Deterministic entity-level scoring from compliance signals.
     
     Per-rule: nc_score_jk = 1 - signal_jk (continuous)
-    Missing: signal = NaN → nc_score = 0.5 (neutral)
+    Missing data handling:
+        - silence_penalty=None (default): NC = 0.5 (neutral, MCAR assumption)
+        - silence_penalty=float: NC = penalty for all rules (MNAR assumption)
+        - silence_penalty=dict: NC = penalty per rule (MNAR, rule-specific)
+    
+    The silence penalty is a domain policy choice set by institutional
+    experts, not learned from data. It reflects the degree to which
+    missing declarations are considered strategic evasion rather than
+    random omission.
+    
     Aggregation: min (worst rule), mean, count(NC rules) — domain choice.
     """
     
-    def __init__(self, rule_ids):
+    def __init__(self, rule_ids, silence_penalty=None):
+        """
+        Parameters
+        ----------
+        rule_ids : list of str
+        silence_penalty : None, float, or dict {rule_id: float}
+            If None: missing -> NC = 0.5 (neutral, MCAR)
+            If float: missing -> NC = silence_penalty for all rules
+            If dict: missing -> NC = silence_penalty[rule_id] per rule
+            Typical values: 0.6 (mild suspicion), 0.7 (moderate), 0.8 (strong)
+        """
         self.rule_ids = rule_ids
+        self._silence = silence_penalty
+    
+    def _get_missing_nc(self, rule_id):
+        """Get the NC score to assign when data is missing for a rule."""
+        if self._silence is None:
+            return 0.5  # neutral (MCAR)
+        elif isinstance(self._silence, dict):
+            return self._silence.get(rule_id, 0.5)
+        else:
+            return float(self._silence)  # same for all rules
     
     def score(self, signals_raw, applicability, entity_ids):
         """
@@ -250,8 +280,13 @@ class EntityScorer:
                 
                 s = signals_raw.get(rid, {}).get(eid, np.nan)
                 is_missing = np.isnan(s) if isinstance(s, float) else False
-                compliance = 0.5 if is_missing else float(s)
-                nc_score = 1.0 - compliance
+                
+                if is_missing:
+                    nc_score = self._get_missing_nc(rid)
+                    compliance = 1.0 - nc_score
+                else:
+                    compliance = float(s)
+                    nc_score = 1.0 - compliance
                 
                 rule_scores[rid] = {
                     'compliance': compliance,

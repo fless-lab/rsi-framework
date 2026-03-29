@@ -368,3 +368,68 @@ observations per rule, the likelihood dominates the prior. This
 validates the prior robustness corollary of Theorem~\ref{thm:bvm}:
 different initial beliefs converge to the same assessment as evidence
 accumulates.
+
+%% ─────────────────────────────────────────────────────────────
+%% A.8 — MNAR DATASET AND SILENCE PENALTY
+%% ─────────────────────────────────────────────────────────────
+
+\subsection{Strategic Missingness Benchmark (MNAR)}
+
+To evaluate RSI under realistic missing data conditions, we generate
+a second benchmark variant (\textbf{dataset-v2-mnar}) from the same
+2{,}000 enterprises and ground-truth labels. The only difference is
+the missing data mechanism: instead of uniform random dropout (MCAR),
+missingness is correlated with the entity's true compliance label.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{llcc}
+\toprule
+\textbf{Rule} & \textbf{NC\%} & $P(\text{miss}|\text{NC})$ & $P(\text{miss}|\text{C})$ \\
+\midrule
+R1\_TVA  & 64\% & 0.40 & 0.05 \\
+R2\_IS   & 37\% & 0.35 & 0.08 \\
+R3\_IMF  &  3\% & 0.20 & 0.10 \\
+R4\_TPU  & 78\% & 0.40 & 0.05 \\
+R5\_IRPP & 31\% & 0.35 & 0.08 \\
+R6\_PAT  & 60\% & 0.40 & 0.05 \\
+R7\_DECL & 22\% & 0.30 & 0.08 \\
+R8\_BANK & 51\% & 0.40 & 0.05 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The MNAR parameters are set to reflect the intuition that non-compliant
+entities are more likely to withhold declarations (strategic evasion),
+while compliant entities rarely fail to declare (occasional
+administrative error). R3\_IMF receives a milder MNAR gradient due to
+its very low non-compliance rate (3\%), where strategic evasion is less
+prevalent. The overall missing rate is $\sim$21\%, comparable to the
+MCAR benchmark ($\sim$18\%).
+
+\paragraph{Silence penalty configuration.}
+The per-rule silence penalty used in EXP-7 is set by domain expertise:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Rule} & \textbf{Silence penalty (NC)} & \textbf{Rationale} \\
+\midrule
+R1\_TVA  & 0.7 & High NC (64\%), strong strategic evasion \\
+R2\_IS   & 0.6 & Medium NC (37\%) \\
+R3\_IMF  & 0.5 & Low NC (3\%), keep neutral \\
+R4\_TPU  & 0.7 & High NC (78\%), strong strategic evasion \\
+R5\_IRPP & 0.6 & Medium NC (31\%) \\
+R6\_PAT  & 0.7 & High NC (60\%) \\
+R7\_DECL & 0.6 & Medium NC (22\%) \\
+R8\_BANK & 0.7 & High NC (51\%) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The penalty replaces the default $\mathrm{NC} = 0.5$ (neutral) for
+missing observations. It is applied only at the entity scoring level
+(Level~2); the population-level Bayesian inference (Level~1) retains
+the unit-likelihood treatment for missing data, preserving the
+theoretical guarantees (T1--T3).

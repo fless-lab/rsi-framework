@@ -22,8 +22,9 @@ import pandas as pd
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 sys.path.insert(0, os.path.join(ROOT_DIR, 'src'))
 
-# Default dataset path
-DEFAULT_DATASET = os.path.join(ROOT_DIR, 'datasets', 'togo-fiscal', 'dataset-v2.csv')
+# Dataset paths
+DEFAULT_DATASET = os.path.join(ROOT_DIR, 'datasets', 'togo-fiscal', 'dataset-v2-mcar.csv')
+MNAR_DATASET = os.path.join(ROOT_DIR, 'datasets', 'togo-fiscal', 'dataset-v2-mnar.csv')
 
 # ═══════════════════════════════════════════════════════════════
 # TOGO FISCAL RULES — institutional knowledge from OTR
@@ -74,6 +75,21 @@ TOGO_RULES = {
 
 RULE_IDS = list(TOGO_RULES.keys())
 
+# ═══════════════════════════════════════════════════════════════
+# SILENCE PENALTY — domain expert configuration for MNAR regimes
+# ═══════════════════════════════════════════════════════════════
+
+SMART_SILENCE_PENALTY = {
+    'R1_TVA': 0.7,   # 64% NC — strong strategic evasion
+    'R2_IS': 0.6,    # 37% NC
+    'R3_IMF': 0.5,   # 3% NC — keep neutral (low strategic value)
+    'R4_TPU': 0.7,   # 78% NC — strong strategic evasion
+    'R5_IRPP': 0.6,  # 31% NC
+    'R6_PAT': 0.7,   # 60% NC
+    'R7_DECL': 0.6,  # 22% NC
+    'R8_BANK': 0.7,  # 51% NC
+}
+
 
 # ═══════════════════════════════════════════════════════════════
 # PRIORS — convert domain rules to core format
@@ -107,7 +123,7 @@ def load_dataset(path=None):
     path = path or DEFAULT_DATASET
     if not os.path.exists(path):
         print(f"ERROR: Dataset not found at {path}")
-        print(f"  Run: python datasets/togo-fiscal/script/generate_dataset.py")
+        print(f"  Expected: {path}")
         sys.exit(1)
     
     df = pd.read_csv(path)
@@ -215,11 +231,13 @@ def extract_signals(df, period=1):
 # DATASET SUMMARY — for quick inspection
 # ═══════════════════════════════════════════════════════════════
 
-def print_dataset_summary(df):
+def print_dataset_summary(df, label=""):
     """Print a summary of the dataset structure."""
     dp = df[df['period'] == 1]
     n = len(dp)
     
+    if label:
+        print(f"\n  [{label}]")
     print(f"  Enterprises: {n}")
     print(f"  Periods: {sorted(df['period'].unique())}")
     print(f"  Segments: {dp['segment'].value_counts().to_dict()}")
@@ -229,10 +247,22 @@ def print_dataset_summary(df):
         na = dp[f'app_{r}'].sum()
         nc = dp[dp[f'app_{r}'] == True][f'label_{r}'].sum()
         nm = dp[dp[f'app_{r}'] == True][f'sig_disc_{r}'].isna().sum()
+        
+        # MNAR diagnostic: P(miss|NC) vs P(miss|C)
+        app_df = dp[dp[f'app_{r}'] == True]
+        if len(app_df) > 0:
+            nc_df = app_df[app_df[f'label_{r}'] == 1]
+            c_df = app_df[app_df[f'label_{r}'] == 0]
+            p_miss_nc = nc_df[f'sig_raw_{r}'].isna().mean() if len(nc_df) > 0 else 0
+            p_miss_c = c_df[f'sig_raw_{r}'].isna().mean() if len(c_df) > 0 else 0
+        else:
+            p_miss_nc, p_miss_c = 0, 0
+        
         desc = TOGO_RULES[r]['desc']
         print(f"    {r}: {na:>5} app ({na/n:>3.0%}), "
               f"{nc:>4} NC ({nc/max(na,1):>3.0%}), "
-              f"{nm:>4} miss ({nm/max(na,1):>3.0%})  [{desc}]")
+              f"{nm:>4} miss ({nm/max(na,1):>3.0%}) "
+              f"[P(m|NC)={p_miss_nc:.0%} P(m|C)={p_miss_c:.0%}]")
     
     print(f"\n  Rules per entity: "
           f"{dp['n_applicable'].value_counts().sort_index().to_dict()}")

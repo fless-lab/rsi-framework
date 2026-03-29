@@ -73,10 +73,15 @@ achieves mean F1\,=\,0.741 and AUC\,=\,0.859 in zero-shot mode.
 Its primary advantage emerges under data degradation: at 50\% missing
 data, RSI's per-rule F1 advantage over rule-based systems widens from
 $+$0.041 to $+$0.25--0.37, while entity-level scoring remains fully
-invariant to prior misspecification. RSI absorbs regulatory threshold
-changes in 0.002\,ms versus $>$1{,}000\,ms for retraining
-($>$500{,}000$\times$). Framework, dataset, and code are released
-publicly.
+invariant to prior misspecification. Under strategic missingness
+(MNAR), where non-compliant entities are more likely to withhold
+declarations, the advantage reaches $+$0.208 over rule-based systems,
+which collapse from 0.700 to 0.571. A configurable silence penalty
+allows domain experts to encode institutional knowledge about
+strategic non-declaration without modifying the inference engine.
+RSI absorbs regulatory threshold changes in 0.002\,ms versus
+$>$1{,}000\,ms for retraining ($>$500{,}000$\times$). Framework,
+dataset, and code are released publicly.
 
 \medskip
 \noindent\textbf{Keywords:} compliance monitoring, missing data,
@@ -135,9 +140,9 @@ interpretable by non-technical auditors.
         under the zero-label, high-missing-data conditions typical of
         rule-governed environments: mean F1\,=\,0.741 and
         AUC\,=\,0.859 per rule in zero-shot mode, with the advantage
-        over rule-based systems widening to $+$0.25--0.37 under 50\%
-        missing data, and full invariance to prior misspecification
-        (Section~\ref{sec:experiments}).
+        over rule-based systems widening from $+$0.041 (random missing)
+        to $+$0.208 (strategic missing), and full invariance to prior
+        misspecification (Section~\ref{sec:experiments}).
   \item \textbf{The RSI framework}: a formalization of compliance
         monitoring as posterior inference over a latent rule-state
         space, operating at two levels: population-level Bayesian
@@ -149,8 +154,9 @@ interpretable by non-technical auditors.
         convergence (T3) (Section~\ref{sec:theory}).
   \item \textbf{A publicly released benchmark} grounded in
         Francophone African fiscal law, encoding 8 rules, a
-        documented regulatory change event, and controlled
-        missingness regimes (Section~\ref{sec:experiments}).
+        documented regulatory change event, and dual missingness
+        regimes (MCAR and MNAR) for controlled evaluation
+        (Section~\ref{sec:experiments}).
 \end{enumerate}
 
 \noindent The current framework addresses the single-period case. We
@@ -880,6 +886,58 @@ vary by at most 0.027 across prior configurations (R1\_TVA: 0.387 to
 dominate the prior. This is Theorem~\ref{thm:bvm} in action:
 asymptotic recovery holds regardless of prior specification.
 
+\paragraph{EXP-7: Strategic Missingness (MCAR vs MNAR).}
+
+In real fiscal environments, missing data is often strategic:
+non-compliant entities are more likely to withhold declarations
+(Missing Not At Random, MNAR) than compliant ones. We evaluate RSI
+on two benchmark variants: \textbf{dataset-v2-mcar} (original, missing
+at random, $\sim$18\%) and \textbf{dataset-v2-mnar} (strategic missing,
+$P(\text{miss}|\text{NC}) \approx 40\%$, $P(\text{miss}|\text{C})
+\approx 5\%$, overall $\sim$21\%). Both share identical enterprises,
+rules, and ground-truth labels; only the missingness pattern differs.
+RSI is evaluated in three configurations: RBS (binary rule-check),
+RSI neutral ($\mathrm{NC}=0.5$ for missing), and RSI smart
+(per-rule silence penalty set by domain experts).
+
+\begin{table}[H]
+\centering
+\caption{Per-rule mean F1 under MCAR vs MNAR missingness regimes.
+         RSI smart uses a configurable per-rule silence penalty.}
+\label{tab:mnar}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{l rrrrrrrr r}
+\toprule
+\textbf{Config}
+  & \textbf{TVA} & \textbf{IS} & \textbf{IMF} & \textbf{TPU}
+  & \textbf{IRPP} & \textbf{PAT} & \textbf{DECL} & \textbf{BANK}
+  & \textbf{Mean} \\
+\midrule
+MCAR $|$ RBS         & .765 & .740 & .541 & .720 & .690 & .783 & .621 & .739 & .700 \\
+MCAR $|$ RSI neutral & .865 & .739 & .545 & .825 & .690 & .841 & .630 & .791 & .741 \\
+MCAR $|$ RSI smart   & .865 & .728 & .545 & .825 & .673 & .841 & .595 & .791 & .733 \\
+\midrule
+MNAR $|$ RBS         & .591 & .575 & .500 & .604 & .553 & .608 & .555 & .581 & .571 \\
+MNAR $|$ RSI neutral & .894 & .782 & .500 & .877 & .749 & .881 & .667 & .853 & .775 \\
+MNAR $|$ RSI smart   & \textbf{.897} & \textbf{.782} & .500 & \textbf{.877} & \textbf{.749} & \textbf{.883} & \textbf{.684} & \textbf{.862} & \textbf{.779} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Three findings emerge. First, RBS collapses under MNAR (mean
+F1: $0.700 \to 0.571$, $-0.129$): when non-compliant entities
+withhold declarations, RBS declares them compliant by default.
+Second, RSI neutral \emph{improves} under MNAR ($0.741 \to 0.775$,
+$+0.034$), because compliant entities declare more reliably
+($P(\text{miss}|\text{C}) \approx 5\%$), giving RSI cleaner signals.
+Third, RSI smart adds a further gain under MNAR ($0.775 \to 0.779$,
+$+0.004$), with the largest improvements on R7\_DECL ($+0.017$) and
+R8\_BANK ($+0.009$). Under MCAR, the smart penalty is neutral or
+slightly negative ($-0.008$), confirming that the neutral treatment
+is optimal when missingness is non-strategic. The RSI smart advantage
+over RBS under MNAR reaches $+0.208$, five times larger than the
+$+0.041$ under MCAR.
+
 \subsection{Interpretability: A Worked Example}
 
 Consider entity E00004, a small formal enterprise with declared
@@ -952,21 +1010,22 @@ the true value. This extension preserves approximate conjugacy under
 moment-matching and is implemented in the next version of RSI.
 
 \paragraph{Strategic missingness.}
-The current missing-data treatment assigns unit likelihood
+The default missing-data treatment assigns unit likelihood
 $P(d_j \mid \mathbf{S}) \equiv 1$ to absent observations, preserving
-the prior without bias. This is mathematically principled under the
-assumption that data is Missing Completely At Random (MCAR). However,
-in fiscal environments, missingness is often strategic: an enterprise
-that fails to file a VAT declaration may be actively evading
-compliance (Missing Not At Random, MNAR). The RSI core preserves
-its unbiased treatment by design, but the domain adapter can
-accommodate a configurable \emph{silence penalty}: when an observation
-is missing for an applicable rule, the adapter assigns an elevated
-non-compliance score (e.g., $\mathrm{NC}_{ji} = 0.7$ instead of
-$0.5$). The penalty value is set by the institutional decision-maker
-based on domain expertise, not learned from data, consistent with
-RSI's philosophy that domain knowledge enters through the adapter,
-not through the inference engine.
+the prior without bias. This is optimal under Missing Completely At
+Random (MCAR), as confirmed by EXP-7: the neutral treatment achieves
+mean F1\,=\,0.741, while applying a silence penalty degrades to 0.733.
+However, in fiscal environments, missingness is often strategic
+(MNAR): non-compliant entities are more likely to withhold
+declarations ($P(\text{miss}|\text{NC}) \approx 40\%$ vs
+$P(\text{miss}|\text{C}) \approx 5\%$ in our MNAR benchmark). Under
+this regime, RBS collapses from 0.700 to 0.571, while RSI neutral
+improves to 0.775 and RSI with a per-rule silence penalty reaches
+0.779, an advantage of $+$0.208 over RBS
+(Table~\ref{tab:mnar}). The silence penalty is a domain policy
+choice: set per rule by institutional experts, not learned from data,
+consistent with RSI's philosophy that domain knowledge enters through
+the adapter, not through the inference engine.
 
 \paragraph{Operational regime and missing data.}
 The mean F1 advantage of RSI over RBS ($+$0.041) under complete data
@@ -1100,7 +1159,11 @@ achieves mean F1\,=\,0.741 and AUC\,=\,0.859 without any labeled data.
 Its primary advantage emerges under missing data: at 50\% missing,
 RSI's per-rule advantage over rule-based systems widens to
 $+$0.25--0.37, while entity-level scoring remains fully invariant to
-prior specification. RSI absorbs regulatory changes in under
+prior specification. Under strategic missingness (MNAR), where
+non-compliant entities withhold declarations, the advantage reaches
+$+$0.208 while rule-based systems collapse. A configurable silence
+penalty allows domain experts to encode institutional knowledge about
+strategic non-declaration. RSI absorbs regulatory changes in under
 0.002\,ms, a speedup exceeding $500{,}000\times$.
 
 RSI is designed for the realities of rule-governed environments in the
